@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-dri \
     software-properties-common \
     ca-certificates \
-    proxychains4 \
     && add-apt-repository -y ppa:mozillateam/ppa \
     && echo 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001' > /etc/apt/preferences.d/mozilla \
     && apt-get update && apt-get install -y firefox \
@@ -18,4 +17,4 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["firefox", "--no-remote", "--no-sandbox"]
+CMD ["firefox", "--no-remote"]
