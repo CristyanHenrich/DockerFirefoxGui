@@ -7,17 +7,23 @@ rm -rf /tmp/.X11-unix/X99
 # Configure proxychains4 if proxy environment variables are set
 if [ -n "$PROXY_USERNAME" ]; then
     echo "Resolving proxy hostname: $DOMAIN_NAME..."
-    # Resolve IP address because proxychains4 requires the first proxy to be an IP
-    PROXY_IP=$(getent hosts "$DOMAIN_NAME" | awk '{ print $1 }' | head -n 1)
     
-    if [ -z "$PROXY_IP" ]; then
-        echo "Warning: Could not resolve $DOMAIN_NAME, using hostname directly (may fail)."
-        PROXY_IP=$DOMAIN_NAME
+    # Wait loop for DNS resolution (up to 10 seconds)
+    for i in {1..10}; do
+        PROXY_IP=$(getent hosts "$DOMAIN_NAME" | awk '{ print $1 }' | head -n 1)
+        if [ -n "$PROXY_IP" ] && [[ "$PROXY_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            break
+        fi
+        echo "Waiting for DNS resolution of $DOMAIN_NAME..."
+        sleep 1
+    done
+
+    if [ -z "$PROXY_IP" ] || ! [[ "$PROXY_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "ERROR: Could not resolve $DOMAIN_NAME to a valid IP. Proxychains will not work."
+        # No fallback to hostname because it crash proxychains anyway
     else
         echo "Resolved $DOMAIN_NAME to $PROXY_IP"
-    fi
-
-    cat <<EOF > /etc/proxychains4.conf
+        cat <<EOF > /etc/proxychains4.conf
 strict_chain
 proxy_dns 
 remote_dns_subnet 224
@@ -26,7 +32,8 @@ tcp_connect_time_out 8000
 [ProxyList]
 http $PROXY_IP $PROXY_PORT $PROXY_USERNAME $PROXY_PASSWORD
 EOF
-    echo "Proxychains configured for $PROXY_IP:$PROXY_PORT"
+        echo "Proxychains configured for $PROXY_IP:$PROXY_PORT"
+    fi
 fi
 
 # Start Xvfb
